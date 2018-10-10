@@ -1,3 +1,135 @@
 #!/usr/bin/env ksh
 
- 
+gLevDebug=4
+gLevInfo=3
+gLevWarn=2
+gLevErr=1
+gLevFail=0
+
+gLevNames[$gLevDebug]=DEBUG
+gLevNames[$gLevInfo]=INFO
+gLevNames[$gLevWarn]=WARNING
+gLevNames[$gLevErr]=ERROR
+gLevNames[$gLevFail]=FAILURE
+
+gInit=0
+gColors=0
+gLevLog=${gLevInfo}
+gLogFile=log4u.log
+gLogAppend=a
+
+gColorRed=31
+gColorGreen=32
+gColorYellow=33
+gColorPurple=35
+gColorWhite=37
+
+logInit() {
+	if [ -f "$1" ]; then
+		# Color property for log
+		cat $1 | grep -i '^LOG4U.LOGCOLORS' >/dev/null 2>&1
+		[[ $? -eq 0 ]] && gColors=1 || gColors=0
+
+		# Logging level property
+		lLevLogName=$(cat $1 | grep -i '^LOG4U.LEVEL' | cut -d '=' -f2)
+		case $lLevLogName in
+			"${gLevNames[$gLevDebug]}")
+				gLevLog=$gLevDebug
+				;;
+			"${gLevNames[$gLevInfo]}")
+				gLevLog=$gLevInfo
+				;;
+			"${gLevNames[$gLevWarn]}")
+				gLevLog=$gLevWarn
+				;;
+			"${gLevNames[$gLevErr]}")
+				gLevLog=$gLevErr
+				;;
+			"${gLevNames[$gLevFail]}")
+				gLevLog=$gLevFail
+				;;
+			"")
+				gLevLog=$gLevDebug
+				logDebug "Property LOG4U.LOGLEVEL not specified. Defaulting to INFO log level"
+				gLevLog=$gLevInfo
+				;;
+			*)
+				logFail "Invalid property value for property LOG4U.LOGLEVEL. Unable to initializelog4u properly"
+				exit 1
+				;;
+		esac
+	
+		# File logging property
+		cat $1 | grep -i '^LOG4U.LOGFILE' >/dev/null 2>&1
+		if [ $? -eq 0 ]; then
+			# Property is defined
+			lLogFile=$(cat $1 | grep -i '^LOG4U.LOGFILE' | cut -d '=' -f2 | cut -d ',' -f1)
+			lLogAppend=$(cat $1 | grep -i '^LOG4U.LOGFILE.*,.*$' | cut -d '=' -f2 | cut -d ',' -f2)
+	
+			[[ ! -z "$lLogFile" ]] && gLogFile=$lLogFile
+			if [ ! -z "$lLogAppend" ]; then
+				case $lLogAppend in
+					[ad])
+						gLogAppend=$lLogAppend
+						;;
+					*)
+						gLogAppend=a
+						;;
+				esac
+			fi
+		fi
+		if [ -f "$gLogFile" -a "$gLogAppend" == "d" ]; then
+			rm -f "$gLogFile"
+		fi
+	
+		logDebug "Log4u framework is initialized"
+		gInit=1
+	else
+		logDebug "Config file $1 not found. Using default values for properties"
+		gInit=0
+	fi
+
+	logDebug "gInit=$gInit, gColors=$gColors, gLevLog=${gLevNames[$gLevLog]}, gLogFile=$gLogFile, gLogAppend=$gLogAppend"
+}
+
+log() {
+	lBuf="$1"
+	lLevCurr=$2
+	lColor=$3
+	lTm=$(date +"%d/%m/%Y %H:%M:%S")
+
+	if [ $gLevLog -ge $lLevCurr ]; then
+		if [ $gColors -eq 1 ]; then
+			lMsg="\033[${lColor}m${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf\033[37m"
+		else
+			lMsg="${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf\033[37m"
+		fi
+
+		if [ ! -z "$gLogFile" ]; then
+			print "$lMsg" | tee -a $gLogFile
+		else
+			print "$lMsg"
+		fi
+	fi
+}
+
+logDebug() {
+	log "$1" $gLevDebug $gColorWhite
+}
+
+logInfo() {
+	log "$1" $gLevInfo $gColorGreen
+}
+
+logWarn() {
+	log "$1" $gLevWarn $gColorYellow
+}
+
+logErr() {
+	log "$1" $gLevErr $gColorRed
+}
+
+logFail() {
+	log "$1" $gLevFail $gColorPurple
+}
+
