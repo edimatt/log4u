@@ -32,7 +32,24 @@ logReset() {
 }
 
 logStatus() {
-	logDebug "gLogInit=$gLogInit, gColors=$gColors, gLevLog=${gLevNames[$gLevLog]}, gLogFile=$gLogFile, gLogAppend=$gLogAppend" 
+	$gLogCommand "gLogInit=$gLogInit, gColors=$gColors, gLevLog=${gLevNames[$gLevLog]}, gLogFile=$gLogFile, gLogAppend=$gLogAppend" 
+}
+
+logSetLevel() {
+	if [ $gLogDebug ]; then set -vx; fi
+	let lCont=0
+	for lLevName in ${gLevNames[@]}; do
+		if [ "$lLevName" == "$1" ]; then
+			gLevLog=$lCont
+			break
+		fi
+		let lCont=lCont+1
+	done
+	if [ $gLogDebug ]; then set +vx; fi
+}
+
+logGetLevel() {
+	$gLogCommand ${gLevNames[$gLevLog]}
 }
 
 logInit() {
