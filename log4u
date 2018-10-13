@@ -1,5 +1,7 @@
 #!/usr/bin/env ksh
 
+[ ! -z $BASH_VERSION ] && gLogCommand="echo -e" || gLogCommand="print"
+
 gLevDebug=4
 gLevInfo=3
 gLevWarn=2
@@ -9,14 +11,11 @@ gLevFail=0
 gLevNames[$gLevDebug]=DEBUG
 gLevNames[$gLevInfo]=INFO
 gLevNames[$gLevWarn]=WARN
-gLevNames[$gLevErr]=ERR
+gLevNames[$gLevErr]=ERROR
 gLevNames[$gLevFail]=FAIL
 
-gInit=0
-gColors=0
-gLevLog=${gLevInfo}
-#gLogFile=log4u.log
-#gLogAppend=a
+gLogInit=0
+gLogDebug=
 
 gColorRed=31
 gColorGreen=32
@@ -24,11 +23,24 @@ gColorYellow=33
 gColorPurple=35
 gColorWhite=37
 
+logReset() {
+	gLogInit=0
+	gLevLog=$gLevInfo
+	unset gColors
+	unset gLogFile
+	unset gLogAppend
+}
+
+logStatus() {
+	logDebug "gLogInit=$gLogInit, gColors=$gColors, gLevLog=${gLevNames[$gLevLog]}, gLogFile=$gLogFile, gLogAppend=$gLogAppend" 
+}
+
 logInit() {
+	if [ $gLogDebug ]; then set -vx; fi
 	if [ -f "$1" ]; then
 		# Color property for log
 		grep -i '^LOG4U\.LOGCOLORS' $1 >/dev/null 2>&1
-		[[ $? -eq 0 ]] && gColors=1 || gColors=0
+		[ $? -eq 0 ] && gColors=1 || gColors=0
 
 		# Logging level property
 		lLevLogName=$(grep -i '^LOG4U\.LEVEL' $1 | cut -d '=' -f2)
@@ -48,14 +60,9 @@ logInit() {
 			"${gLevNames[$gLevFail]}")
 				gLevLog=$gLevFail
 				;;
-			"")
-				gLevLog=$gLevDebug
-				logDebug "Property LOG4U.LOGLEVEL not specified. Defaulting to INFO log level"
-				gLevLog=$gLevInfo
-				;;
 			*)
-				logFail "Invalid property value for property LOG4U.LOGLEVEL. Unable to initializelog4u properly"
-				exit 1
+				gLevLog=$gLevInfo
+				logErr "Invalid property value for property LOG4U.LOGLEVEL. Defaulting to INFO level"
 				;;
 		esac
 	
@@ -84,36 +91,34 @@ logInit() {
 			rm -f "$gLogFile"
 		fi
 	
-		logDebug "Log4u framework is initialized"
-		gInit=1
+		gLogInit=1
 	else
-		logDebug "Config file $1 not found. Using default values for properties"
-		gInit=0
+		logFail "Failure initializing log4u. Config file $1 not found. Using default values for properties"
+		logReset
 	fi
-
-	logDebug "gInit=$gInit, gColors=$gColors, gLevLog=${gLevNames[$gLevLog]}, gLogFile=$gLogFile, gLogAppend=$gLogAppend"
+	if [ $gLogDebug ]; then set +vx; fi
 }
 
 log() {
+	if [ $gLogDebug ]; then set -vx; fi
 	lBuf="$1"
 	lLevCurr=$2
 	lColor=$3
 	lTm=$(date +"%d/%m/%Y %H:%M:%S")
-
-	if [ $gLevLog -ge $lLevCurr ]; then
-		if [ $gColors -eq 1 ]; then
+	if [ ${gLevLog:-$gLevInfo} -ge $lLevCurr ]; then
+		if [ ${gColors:-0} -eq 1 ]; then
 			lMsg="\033[${lColor}m${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf\033[37m"
 		else
-			lMsg="${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf\033[37m"
+			lMsg="${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf"
 		fi
 
 		if [ ! -z "$gLogFile" ]; then
-			[[ ! -z $BASH_VERSION ]] && lCommand="echo -e" || lCommand="print"
-			$lCommand "$lMsg" | tee -a $gLogFile
+			$gLogCommand "$lMsg" | tee -a $gLogFile
 		else
-			$lCommand "$lMsg"
+			$gLogCommand "$lMsg"
 		fi
 	fi
+	if [ $gLogDebug ]; then set +vx; fi
 }
 
 logDebug() {
@@ -121,7 +126,7 @@ logDebug() {
 }
 
 logInfo() {
-	log "$1" $gLevInfo $gColorGreen
+	log "$1" $gLevInfo $gColorWhite
 }
 
 logWarn() {
@@ -135,4 +140,3 @@ logErr() {
 logFail() {
 	log "$1" $gLevFail $gColorPurple
 }
-
