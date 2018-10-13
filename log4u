@@ -15,8 +15,8 @@ gLevNames[$gLevFail]=FAIL
 gInit=0
 gColors=0
 gLevLog=${gLevInfo}
-gLogFile=log4u.log
-gLogAppend=a
+#gLogFile=log4u.log
+#gLogAppend=a
 
 gColorRed=31
 gColorGreen=32
@@ -27,11 +27,11 @@ gColorWhite=37
 logInit() {
 	if [ -f "$1" ]; then
 		# Color property for log
-		cat $1 | grep -i '^LOG4U\.LOGCOLORS' >/dev/null 2>&1
+		grep -i '^LOG4U\.LOGCOLORS' $1 >/dev/null 2>&1
 		[[ $? -eq 0 ]] && gColors=1 || gColors=0
 
 		# Logging level property
-		lLevLogName=$(cat $1 | grep -i '^LOG4U\.LEVEL' | cut -d '=' -f2)
+		lLevLogName=$(grep -i '^LOG4U\.LEVEL' $1 | cut -d '=' -f2)
 		case $lLevLogName in
 			"${gLevNames[$gLevDebug]}")
 				gLevLog=$gLevDebug
@@ -60,14 +60,13 @@ logInit() {
 		esac
 	
 		# File logging property
-		cat $1 | grep -i '^LOG4U\.LOGFILE' >/dev/null 2>&1
+		grep -i '^LOG4U\.LOGFILE' $1 >/dev/null 2>&1
 		if [ $? -eq 0 ]; then
 			# Property is defined
-			lLogFile=$(cat $1 | grep -i '^LOG4U\.LOGFILE' | cut -d '=' -f2 | cut -d ',' -f1)
-			lLogAppend=$(cat $1 | grep -i '^LOG4U\.LOGFILE.*,.*$' | cut -d '=' -f2 | cut -d ',' -f2)
-	
-			[[ ! -z "$lLogFile" ]] && gLogFile=$lLogFile
-			if [ ! -z "$lLogAppend" ]; then
+			lLogFile=$(grep -i '^LOG4U\.LOGFILE' $1 | cut -d '=' -f2 | cut -d ',' -f1)
+			lLogAppend=$(grep -i '^LOG4U\.LOGFILE.*,.*$' $1 | cut -d '=' -f2 | cut -d ',' -f2)
+			if [ ! -z "$lLogFile" ]; then
+				gLogFile=$lLogFile
 				case $lLogAppend in
 					[ad])
 						gLogAppend=$lLogAppend
@@ -76,6 +75,9 @@ logInit() {
 						gLogAppend=a
 						;;
 				esac
+			else
+				gLogFile=""
+				gLogAppend=""
 			fi
 		fi
 		if [ -f "$gLogFile" -a "$gLogAppend" == "d" ]; then
@@ -106,7 +108,7 @@ log() {
 		fi
 
 		if [ ! -z "$gLogFile" ]; then
-      [[ ! -z $BASH_VERSION ]] && lCommand="echo -e" || lCommand="print"
+			[[ ! -z $BASH_VERSION ]] && lCommand="echo -e" || lCommand="print"
 			$lCommand "$lMsg" | tee -a $gLogFile
 		else
 			$lCommand "$lMsg"
