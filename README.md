@@ -16,11 +16,23 @@ All you need is the log4u module. Optionally, write your own configuration file
 ```
 
 2. Write a configuration file (optional). Supported properties are
-- LOG4U.LEVEL=DEBUG|INFO|WARN|ERR|FAIL
+- LOG4U.CONSOLE
+- LOG4U.CONSOLE.LEVEL=DEBUG|INFO|WARN|ERROR|FAIL
 - LOG4U.LOGCOLORS
 - LOG4U.LOGFILE=filename,[d|a]
+- LOG4U.LOGFILE.LEVEL=DEBUG|INFO|WARN|ERROR|FAIL
 
-3. If you have a config file, initialize it:
+LOG4U.CONSOLE, if present, enables the messages to go to the console. The
+LOG4U.CONSOLE.LEVEL specifies the corresponding level (default INFO). 
+
+LOG4U.LOGFILE specifies the log file name and mode with an optional flag ('d'
+for delete and 'a' for append. If this property is specified, the 
+associated LOG4U.LOGFILE.LEVEL sets the corresponding level.
+Levels can be different for file and console.
+
+The property LOG4U.LOGCOLORS enables colors.
+
+3. In case you have a config file, initialize the logging library:
 ```
     logInit logging.conf
 ```

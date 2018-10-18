@@ -30,10 +30,11 @@ logReset() {
 	unset gLogColors
 	unset gLogFile
 	unset gLogAppend
+	unset gFileLevLog
 }
 
 logStatus() {
-	$gLogCommand "gLogInit=$gLogInit, gLogColors=$gLogColors, gLevLog=${gLevNames[$gLevLog]}, gLogConsole=$gLogConsole, gLogFile=$gLogFile, gLogAppend=$gLogAppend" 
+	$gLogCommand "gLogInit=$gLogInit, gLogColors=$gLogColors, gLevLog=${gLevNames[$gLevLog]}, gLogConsole=$gLogConsole, gLogFile=$gLogFile, gLogAppend=$gLogAppend, gFileLevLog=${gLevNames[$gFileLevLog]}" 
 }
 
 logSetLevel() {
@@ -60,9 +61,12 @@ logInit() {
 		grep -i '^LOG4U\.LOGCOLORS' $1 >/dev/null 2>&1
 		[ $? -eq 0 ] && gLogColors=1 || gLogColors=0
 
-		# Logging level property
-		lLevLogName=$(grep -i '^LOG4U\.LEVEL' $1 | cut -d '=' -f2)
-		case $lLevLogName in
+		# Logging to console?
+		grep -i '^LOG4U\.CONSOLE$' $1 >/dev/null 2>&1
+		if [ $? -eq 0 ]; then 
+			gLogConsole=1
+			lLevLogName=$(grep -i '^LOG4U\.CONSOLE\.LEVEL' $1 | cut -d '=' -f2)
+			case $lLevLogName in
 			"${gLevNames[$gLevDebug]}")
 				gLevLog=$gLevDebug
 				;;
@@ -82,18 +86,17 @@ logInit() {
 				gLevLog=$gLevInfo
 				logErr "Invalid property value for property LOG4U.LOGLEVEL. Defaulting to INFO level"
 				;;
-		esac
-
-		# Logging to console?
-		grep -i '^LOG4U\.CONSOLE' $1 >/dev/null 2>&1
-		[ $? -eq 0 ] && gLogConsole=1 || gLogConsole=0
+			esac
+		else
+			gLogConsole=0
+		fi
 	
 		# File logging property
-		grep -i '^LOG4U\.LOGFILE' $1 >/dev/null 2>&1
+		grep -i '^LOG4U\.LOGFILE=' $1 >/dev/null 2>&1
 		if [ $? -eq 0 ]; then
 			# Property is defined
-			lLogFile=$(grep -i '^LOG4U\.LOGFILE' $1 | cut -d '=' -f2 | cut -d ',' -f1)
-			lLogAppend=$(grep -i '^LOG4U\.LOGFILE.*,.*$' $1 | cut -d '=' -f2 | cut -d ',' -f2)
+			lLogFile=$(grep -i '^LOG4U\.LOGFILE=' $1 | cut -d '=' -f2 | cut -d ',' -f1)
+			lLogAppend=$(grep -i '^LOG4U\.LOGFILE=.*,.*$' $1 | cut -d '=' -f2 | cut -d ',' -f2)
 			if [ ! -z "$lLogFile" ]; then
 				gLogFile=$lLogFile
 				case $lLogAppend in
@@ -104,14 +107,47 @@ logInit() {
 						gLogAppend=a
 						;;
 				esac
+
+				# If a log file is defined, load its properties
+				lLevLogName=$(grep -i '^LOG4U\.LOGFILE\.LEVEL=' $1 | cut -d '=' -f2)
+				case $lLevLogName in
+					"${gLevNames[$gLevDebug]}")
+						gFileLevLog=$gLevDebug
+						;;
+					"${gLevNames[$gLevInfo]}")
+						gFileLevLog=$gLevInfo
+						;;
+					"${gLevNames[$gLevWarn]}")
+						gFileLevLog=$gLevWarn
+						;;
+					"${gLevNames[$gLevErr]}")
+						gFileLevLog=$gLevErr
+						;;
+					"${gLevNames[$gLevFail]}")
+						gFileLevLog=$gLevFail
+						;;
+					*)
+						gFileLevLog=$gLevInfo
+						logErr "Invalid property value for property LOG4U.LOGLEVEL. Defaulting to INFO level"
+						;;
+		    esac
 			else
 				gLogFile=""
 				gLogAppend=""
+				gFileLevLog=""
 			fi
+		else
+			gLogFile=""
+			gLogAppend=""
+			gFileLevLog=""
+
 		fi
 		if [ -f "$gLogFile" -a "$gLogAppend" == "d" ]; then
 			rm -f "$gLogFile"
 		fi
+
+
+
 	
 		gLogInit=1
 	else
@@ -127,16 +163,20 @@ log() {
 	lLevCurr=$2
 	lColor=$3
 	lTm=$(date +"%d/%m/%Y %H:%M:%S")
-	if [ ${gLevLog:-$gLevInfo} -ge $lLevCurr ]; then
-		if [ ${gLogColors:-0} -eq 1 ]; then
-			lMsg="\033[${lColor}m${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf\033[37m"
-		else
-			lMsg="${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf"
-		fi
-
-		[ ! -z "$gLogFile"   ] && $gLogCommand "$lMsg" >> $gLogFile
-		[ ${gLogConsole:-1} -eq 1 ] && $gLogCommand "$lMsg"
+	if [ ${gLogColors:-0} -eq 1 ]; then
+		lMsg="\033[${lColor}m${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf\033[37m"
+	else
+		lMsg="${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf"
 	fi
+		
+	if [ ${gLogConsole:-1} -eq 1 -a  ${gLevLog:-$gLevInfo} -ge $lLevCurr ]; then
+		$gLogCommand "$lMsg"
+	fi
+
+	if [ ! -z  "$gLogFile" -a ${gFileLevLog:-$gLevInfo} -ge $lLevCurr ]; then
+		 $gLogCommand "$lMsg" >> $gLogFile
+	fi
+
 	if [ $gLogDebug ]; then set +vx; fi
 }
 
