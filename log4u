@@ -17,22 +17,23 @@ gLevNames[$gLevFail]=FAIL
 gLogInit=0
 gLogDebug=
 
-gColorRed=31
-gColorGreen=32
-gColorYellow=33
-gColorPurple=35
-gColorWhite=37
+gLogColorRed=31
+gLogColorGreen=32
+gLogColorYellow=33
+gLogColorPurple=35
+gLogColorWhite=37
 
 logReset() {
 	gLogInit=0
 	gLevLog=$gLevInfo
-	unset gColors
+	gLogConsole=1
+	unset gLogColors
 	unset gLogFile
 	unset gLogAppend
 }
 
 logStatus() {
-	$gLogCommand "gLogInit=$gLogInit, gColors=$gColors, gLevLog=${gLevNames[$gLevLog]}, gLogFile=$gLogFile, gLogAppend=$gLogAppend" 
+	$gLogCommand "gLogInit=$gLogInit, gLogColors=$gLogColors, gLevLog=${gLevNames[$gLevLog]}, gLogConsole=$gLogConsole, gLogFile=$gLogFile, gLogAppend=$gLogAppend" 
 }
 
 logSetLevel() {
@@ -57,7 +58,7 @@ logInit() {
 	if [ -f "$1" ]; then
 		# Color property for log
 		grep -i '^LOG4U\.LOGCOLORS' $1 >/dev/null 2>&1
-		[ $? -eq 0 ] && gColors=1 || gColors=0
+		[ $? -eq 0 ] && gLogColors=1 || gLogColors=0
 
 		# Logging level property
 		lLevLogName=$(grep -i '^LOG4U\.LEVEL' $1 | cut -d '=' -f2)
@@ -82,6 +83,10 @@ logInit() {
 				logErr "Invalid property value for property LOG4U.LOGLEVEL. Defaulting to INFO level"
 				;;
 		esac
+
+		# Logging to console?
+		grep -i '^LOG4U\.CONSOLE' $1 >/dev/null 2>&1
+		[ $? -eq 0 ] && gLogConsole=1 || gLogConsole=0
 	
 		# File logging property
 		grep -i '^LOG4U\.LOGFILE' $1 >/dev/null 2>&1
@@ -123,37 +128,34 @@ log() {
 	lColor=$3
 	lTm=$(date +"%d/%m/%Y %H:%M:%S")
 	if [ ${gLevLog:-$gLevInfo} -ge $lLevCurr ]; then
-		if [ ${gColors:-0} -eq 1 ]; then
+		if [ ${gLogColors:-0} -eq 1 ]; then
 			lMsg="\033[${lColor}m${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf\033[37m"
 		else
 			lMsg="${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf"
 		fi
 
-		if [ ! -z "$gLogFile" ]; then
-			$gLogCommand "$lMsg" | tee -a $gLogFile
-		else
-			$gLogCommand "$lMsg"
-		fi
+		[ ! -z "$gLogFile"   ] && $gLogCommand "$lMsg" >> $gLogFile
+		[ ${gLogConsole:-1} -eq 1 ] && $gLogCommand "$lMsg"
 	fi
 	if [ $gLogDebug ]; then set +vx; fi
 }
 
 logDebug() {
-	log "$1" $gLevDebug $gColorWhite
+	log "$1" $gLevDebug $gLogColorWhite
 }
 
 logInfo() {
-	log "$1" $gLevInfo $gColorWhite
+	log "$1" $gLevInfo $gLogColorWhite
 }
 
 logWarn() {
-	log "$1" $gLevWarn $gColorYellow
+	log "$1" $gLevWarn $gLogColorYellow
 }
 
 logErr() {
-	log "$1" $gLevErr $gColorRed
+	log "$1" $gLevErr $gLogColorRed
 }
 
 logFail() {
-	log "$1" $gLevFail $gColorPurple
+	log "$1" $gLevFail $gLogColorPurple
 }
