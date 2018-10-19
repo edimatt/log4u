@@ -163,14 +163,11 @@ log() {
 	lLevCurr=$2
 	lColor=$3
 	lTm=$(date +"%d/%m/%Y %H:%M:%S")
-	if [ ${gLogColors:-0} -eq 1 ]; then
-		lMsg="\033[${lColor}m${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf\033[37m"
-	else
-		lMsg="${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf"
-	fi
+	# Formatter code here
+	lMsg="${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf"
 		
 	if [ ${gLogConsole:-1} -eq 1 -a  ${gLevLogConsole:-$gLevInfo} -ge $lLevCurr ]; then
-		$gLogCommand "$lMsg"
+		$gLogCommand $([ ${gLogColors:-0} -eq 1 ] && $gLogCommand "\033[${lColor}m${lMsg}\033[37m" || $gLogCommand "$lMsg")
 	fi
 
 	if [ ! -z  "$gLogFile" -a ${gLevLogFile:-$gLevInfo} -ge $lLevCurr ]; then
