@@ -145,9 +145,6 @@ logInit() {
 		if [ -f "$gLogFile" -a "$gLogAppend" == "d" ]; then
 			rm -f "$gLogFile"
 		fi
-
-
-
 	
 		gLogInit=1
 	else
@@ -186,13 +183,13 @@ logInfo() {
 }
 
 logWarn() {
-	log "$1" $gLevWarn $gLogColorYellow
+	log "$1" $gLevWarn $gLogColorYellow 1>&2
 }
 
 logErr() {
-	log "$1" $gLevErr $gLogColorRed
+	log "$1" $gLevErr $gLogColorRed 1>&2
 }
 
 logFail() {
-	log "$1" $gLevFail $gLogColorPurple
+	log "$1" $gLevFail $gLogColorPurple 1>&2
 }
