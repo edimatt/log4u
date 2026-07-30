@@ -56,103 +56,130 @@ logGetLevel() {
 	logLevelName "$gLevLogConsole"
 }
 
+logTrim() {
+	lTrimValue=$1
+	lTrimValue=${lTrimValue#"${lTrimValue%%[![:space:]]*}"}
+	lTrimValue=${lTrimValue%"${lTrimValue##*[![:space:]]}"}
+	printf '%s\n' "$lTrimValue"
+}
+
+logLevelValue() {
+	case "$1" in
+		DEBUG) printf '%s\n' "$gLevDebug" ;;
+		INFO)  printf '%s\n' "$gLevInfo" ;;
+		WARN)  printf '%s\n' "$gLevWarn" ;;
+		ERROR) printf '%s\n' "$gLevErr" ;;
+		FAIL)  printf '%s\n' "$gLevFail" ;;
+		*)     return 1 ;;
+	esac
+}
+
+logConfigError() {
+	printf 'log4u: %s\n' "$1" >&2
+}
+
 logInit() {
 	if [ "$gLogDebug" ]; then set -vx; fi
-	if [ -f "$1" ]; then
-		# Color property for log
-		grep -i '^LOG4U\.LOGCOLORS' "$1" >/dev/null 2>&1
-		[ $? -eq 0 ] && gLogColors=1 || gLogColors=0
+	if [ ! -f "$1" ]; then
+		logConfigError "configuration file not found: $1"
+		if [ "$gLogDebug" ]; then set +vx; fi
+		return 1
+	fi
 
-		# Logging to console?
-		grep -i '^LOG4U\.CONSOLE$' "$1" >/dev/null 2>&1
-		if [ $? -eq 0 ]; then 
-			gLogConsole=1
-			lLevLogName=$(grep -i '^LOG4U\.CONSOLE\.LEVEL' "$1" | cut -d '=' -f2)
-			case "$lLevLogName" in
-			DEBUG)
-				gLevLogConsole=$gLevDebug
-				;;
-			INFO)
-				gLevLogConsole=$gLevInfo
-				;;
-			WARN)
-				gLevLogConsole=$gLevWarn
-				;;
-			ERROR)
-				gLevLogConsole=$gLevErr
-				;;
-			FAIL)
-				gLevLogConsole=$gLevFail
+	lConfigColors=0
+	lConfigConsole=0
+	lConfigConsoleLevel=$gLevInfo
+	lConfigFile=
+	lConfigFileMode=a
+	lConfigFileLevel=$gLevInfo
+	lConfigLineNumber=0
+
+	while IFS= read -r lConfigLine || [ -n "$lConfigLine" ]; do
+		lConfigLineNumber=$((lConfigLineNumber + 1))
+		lConfigLine=$(logTrim "$lConfigLine")
+
+		case "$lConfigLine" in
+			''|\#*) continue ;;
+		esac
+
+		case "$lConfigLine" in
+			*=*)
+				lConfigKey=$(logTrim "${lConfigLine%%=*}")
+				lConfigValue=$(logTrim "${lConfigLine#*=}")
 				;;
 			*)
-				gLevLogConsole=$gLevInfo
-				logErr "Invalid property value for property LOG4U.LOGLEVEL. Defaulting to INFO level"
+				lConfigKey=$lConfigLine
+				lConfigValue=
 				;;
-			esac
-		else
-			gLogConsole=0
-		fi
-	
-		# File logging property
-		grep -i '^LOG4U\.LOGFILE=' "$1" >/dev/null 2>&1
-		if [ $? -eq 0 ]; then
-			# Property is defined
-			lLogFile=$(grep -i '^LOG4U\.LOGFILE=' "$1" | cut -d '=' -f2 | cut -d ',' -f1)
-			lLogAppend=$(grep -i '^LOG4U\.LOGFILE=.*,.*$' "$1" | cut -d '=' -f2 | cut -d ',' -f2)
-			if [ -n "$lLogFile" ]; then
-				gLogFile=$lLogFile
-				case "$lLogAppend" in
-					[ad])
-						gLogAppend=$lLogAppend
-						;;
-					*)
-						gLogAppend=a
-						;;
-				esac
+		esac
 
-				# If a log file is defined, load its properties
-				lLevLogName=$(grep -i '^LOG4U\.LOGFILE\.LEVEL=' "$1" | cut -d '=' -f2)
-				case "$lLevLogName" in
-					DEBUG)
-						gLevLogFile=$gLevDebug
-						;;
-					INFO)
-						gLevLogFile=$gLevInfo
-						;;
-					WARN)
-						gLevLogFile=$gLevWarn
-						;;
-					ERROR)
-						gLevLogFile=$gLevErr
-						;;
-					FAIL)
-						gLevLogFile=$gLevFail
-						;;
-					*)
-						gLevLogFile=$gLevInfo
-						logErr "Invalid property value for property LOG4U.LOGLEVEL. Defaulting to INFO level"
-						;;
-		    esac
-			else
-				gLogFile=""
-				gLogAppend=""
-				gLevLogFile=""
-			fi
-		else
-			gLogFile=""
-			gLogAppend=""
-			gLevLogFile=""
+		case "$lConfigKey" in
+			LOG4U.LOGCOLORS)
+				if [ -n "$lConfigValue" ]; then
+					logConfigError "line $lConfigLineNumber: LOG4U.LOGCOLORS does not accept a value"
+					return 1
+				fi
+				lConfigColors=1
+				;;
+			LOG4U.CONSOLE)
+				if [ -n "$lConfigValue" ]; then
+					logConfigError "line $lConfigLineNumber: LOG4U.CONSOLE does not accept a value"
+					return 1
+				fi
+				lConfigConsole=1
+				;;
+			LOG4U.CONSOLE.LEVEL)
+				if ! lConfigLevel=$(logLevelValue "$lConfigValue"); then
+					logConfigError "line $lConfigLineNumber: invalid console level '$lConfigValue'"
+					return 1
+				fi
+				lConfigConsoleLevel=$lConfigLevel
+				;;
+			LOG4U.LOGFILE)
+				lConfigFile=$(logTrim "${lConfigValue%%,*}")
+				if [ -z "$lConfigFile" ]; then
+					logConfigError "line $lConfigLineNumber: LOG4U.LOGFILE requires a filename"
+					return 1
+				fi
+				if [ "$lConfigValue" = "$lConfigFile" ]; then
+					lConfigFileMode=a
+				else
+					lConfigFileMode=$(logTrim "${lConfigValue#*,}")
+					case "$lConfigFileMode" in
+						a|d) ;;
+						*)
+							logConfigError "line $lConfigLineNumber: invalid logfile mode '$lConfigFileMode'"
+							return 1
+							;;
+					esac
+				fi
+				;;
+			LOG4U.LOGFILE.LEVEL)
+				if ! lConfigLevel=$(logLevelValue "$lConfigValue"); then
+					logConfigError "line $lConfigLineNumber: invalid logfile level '$lConfigValue'"
+					return 1
+				fi
+				lConfigFileLevel=$lConfigLevel
+				;;
+			*)
+				logConfigError "line $lConfigLineNumber: unknown property '$lConfigKey'"
+				return 1
+				;;
+		esac
+	done < "$1"
 
-		fi
-		if [ -f "$gLogFile" ] && [ "$gLogAppend" = "d" ]; then
-			rm -f "$gLogFile"
-		fi
-	
-		gLogInit=1
-	else
-		logFail "Failure initializing log4u. Config file $1 not found. Using default values for properties"
-		logReset
+	gLogColors=$lConfigColors
+	gLogConsole=$lConfigConsole
+	gLevLogConsole=$lConfigConsoleLevel
+	gLogFile=$lConfigFile
+	gLogAppend=$lConfigFileMode
+	gLevLogFile=$lConfigFileLevel
+	gLogInit=1
+
+	if [ -f "$gLogFile" ] && [ "$gLogAppend" = "d" ]; then
+		rm -f "$gLogFile"
 	fi
+
 	if [ "$gLogDebug" ]; then set +vx; fi
 }
 

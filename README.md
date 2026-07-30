@@ -33,11 +33,17 @@ LOG4U.CONSOLE, if present, enables the messages to go to the console. The
 LOG4U.CONSOLE.LEVEL specifies the corresponding level (default INFO). 
 
 LOG4U.LOGFILE specifies the log file name and mode with an optional flag ('d'
-for delete and 'a' for append. If this property is specified, the 
+for delete and 'a' for append). If this property is specified, the
 associated LOG4U.LOGFILE.LEVEL sets the corresponding level.
 Levels can be different for file and console.
 
 The property LOG4U.LOGCOLORS enables colors.
+
+Configuration keys are case-sensitive. Blank lines and lines beginning with
+`#` are ignored, and surrounding whitespace around keys and values is allowed.
+If a key occurs more than once, its last value is used. Unknown keys and invalid
+values cause `logInit` to return a nonzero status without changing the active
+logging configuration.
 
 3. In case you have a config file, initialize the logging library:
 ```
