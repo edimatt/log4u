@@ -40,7 +40,7 @@ jobs:
 
       - name: Install bats-core and test shells
         run: |
-          npm install --global bats@1.14.0
+          npm install --global bats@1.13.0
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends dash ksh
 
