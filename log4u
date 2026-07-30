@@ -16,7 +16,7 @@ gLogColorPurple=35
 gLogColorWhite=37
 
 logLevelName() {
-	case $1 in
+	case "$1" in
 		"$gLevDebug") printf '%s\n' DEBUG ;;
 		"$gLevInfo")  printf '%s\n' INFO ;;
 		"$gLevWarn")  printf '%s\n' WARN ;;
@@ -41,15 +41,15 @@ logStatus() {
 }
 
 logSetLevel() {
-	if [ $gLogDebug ]; then set -vx; fi
-	case $1 in
+	if [ "$gLogDebug" ]; then set -vx; fi
+	case "$1" in
 		DEBUG) gLevLogConsole=$gLevDebug ;;
 		INFO)  gLevLogConsole=$gLevInfo ;;
 		WARN)  gLevLogConsole=$gLevWarn ;;
 		ERROR) gLevLogConsole=$gLevErr ;;
 		FAIL)  gLevLogConsole=$gLevFail ;;
 	esac
-	if [ $gLogDebug ]; then set +vx; fi
+	if [ "$gLogDebug" ]; then set +vx; fi
 }
 
 logGetLevel() {
@@ -57,18 +57,18 @@ logGetLevel() {
 }
 
 logInit() {
-	if [ $gLogDebug ]; then set -vx; fi
+	if [ "$gLogDebug" ]; then set -vx; fi
 	if [ -f "$1" ]; then
 		# Color property for log
-		grep -i '^LOG4U\.LOGCOLORS' $1 >/dev/null 2>&1
+		grep -i '^LOG4U\.LOGCOLORS' "$1" >/dev/null 2>&1
 		[ $? -eq 0 ] && gLogColors=1 || gLogColors=0
 
 		# Logging to console?
-		grep -i '^LOG4U\.CONSOLE$' $1 >/dev/null 2>&1
+		grep -i '^LOG4U\.CONSOLE$' "$1" >/dev/null 2>&1
 		if [ $? -eq 0 ]; then 
 			gLogConsole=1
-			lLevLogName=$(grep -i '^LOG4U\.CONSOLE\.LEVEL' $1 | cut -d '=' -f2)
-			case $lLevLogName in
+			lLevLogName=$(grep -i '^LOG4U\.CONSOLE\.LEVEL' "$1" | cut -d '=' -f2)
+			case "$lLevLogName" in
 			DEBUG)
 				gLevLogConsole=$gLevDebug
 				;;
@@ -94,14 +94,14 @@ logInit() {
 		fi
 	
 		# File logging property
-		grep -i '^LOG4U\.LOGFILE=' $1 >/dev/null 2>&1
+		grep -i '^LOG4U\.LOGFILE=' "$1" >/dev/null 2>&1
 		if [ $? -eq 0 ]; then
 			# Property is defined
-			lLogFile=$(grep -i '^LOG4U\.LOGFILE=' $1 | cut -d '=' -f2 | cut -d ',' -f1)
-			lLogAppend=$(grep -i '^LOG4U\.LOGFILE=.*,.*$' $1 | cut -d '=' -f2 | cut -d ',' -f2)
-			if [ ! -z "$lLogFile" ]; then
+			lLogFile=$(grep -i '^LOG4U\.LOGFILE=' "$1" | cut -d '=' -f2 | cut -d ',' -f1)
+			lLogAppend=$(grep -i '^LOG4U\.LOGFILE=.*,.*$' "$1" | cut -d '=' -f2 | cut -d ',' -f2)
+			if [ -n "$lLogFile" ]; then
 				gLogFile=$lLogFile
-				case $lLogAppend in
+				case "$lLogAppend" in
 					[ad])
 						gLogAppend=$lLogAppend
 						;;
@@ -111,8 +111,8 @@ logInit() {
 				esac
 
 				# If a log file is defined, load its properties
-				lLevLogName=$(grep -i '^LOG4U\.LOGFILE\.LEVEL=' $1 | cut -d '=' -f2)
-				case $lLevLogName in
+				lLevLogName=$(grep -i '^LOG4U\.LOGFILE\.LEVEL=' "$1" | cut -d '=' -f2)
+				case "$lLevLogName" in
 					DEBUG)
 						gLevLogFile=$gLevDebug
 						;;
@@ -153,11 +153,11 @@ logInit() {
 		logFail "Failure initializing log4u. Config file $1 not found. Using default values for properties"
 		logReset
 	fi
-	if [ $gLogDebug ]; then set +vx; fi
+	if [ "$gLogDebug" ]; then set +vx; fi
 }
 
 log() {
-	if [ $gLogDebug ]; then set -vx; fi
+	if [ "$gLogDebug" ]; then set -vx; fi
 	lBuf="$1"
 	lLevCurr=$2
 	lColor=$3
@@ -167,7 +167,7 @@ log() {
 		
 	if [ "${gLogConsole:-1}" -eq 1 ] && [ "${gLevLogConsole:-$gLevInfo}" -ge "$lLevCurr" ]; then
 		if [ "${gLogColors:-0}" -eq 1 ]; then
-			printf '\033[%sm%s\033[37m\n' "$lColor" "$lMsg"
+			printf '\033[%sm%s\033[0m\n' "$lColor" "$lMsg"
 		else
 			printf '%s\n' "$lMsg"
 		fi
@@ -177,25 +177,25 @@ log() {
 		printf '%s\n' "$lMsg" >> "$gLogFile"
 	fi
 
-	if [ $gLogDebug ]; then set +vx; fi
+	if [ "$gLogDebug" ]; then set +vx; fi
 }
 
 logDebug() {
-	log "$1" $gLevDebug $gLogColorWhite
+	log "$1" "$gLevDebug" "$gLogColorWhite"
 }
 
 logInfo() {
-	log "$1" $gLevInfo $gLogColorWhite
+	log "$1" "$gLevInfo" "$gLogColorWhite"
 }
 
 logWarn() {
-	log "$1" $gLevWarn $gLogColorYellow 1>&2
+	log "$1" "$gLevWarn" "$gLogColorYellow" 1>&2
 }
 
 logErr() {
-	log "$1" $gLevErr $gLogColorRed 1>&2
+	log "$1" "$gLevErr" "$gLogColorRed" 1>&2
 }
 
 logFail() {
-	log "$1" $gLevFail $gLogColorPurple 1>&2
+	log "$1" "$gLevFail" "$gLogColorPurple" 1>&2
 }
