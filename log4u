@@ -6,7 +6,6 @@ gLevWarn=2
 gLevErr=1
 gLevFail=0
 
-gLogInit=0
 gLogDebug=
 
 gLogColorRed=31
@@ -27,17 +26,18 @@ logLevelName() {
 }
 
 logReset() {
-	gLogInit=0
 	gLevLogConsole=$gLevInfo
 	gLogConsole=1
-	unset gLogColors
-	unset gLogFile
-	unset gLogAppend
-	unset gLevLogFile
+	gLogColors=0
+	gLogFile=
+	gLogAppend=a
+	gLevLogFile=$gLevInfo
 }
 
+logReset
+
 logStatus() {
-	printf '%s\n' "gLogInit=$gLogInit, gLogColors=$gLogColors, gLevLogConsole=$(logLevelName "$gLevLogConsole"), gLogConsole=$gLogConsole, gLogFile=$gLogFile, gLogAppend=$gLogAppend, gLevLogFile=$(logLevelName "$gLevLogFile")"
+	printf '%s\n' "gLogColors=$gLogColors, gLevLogConsole=$(logLevelName "$gLevLogConsole"), gLogConsole=$gLogConsole, gLogFile=$gLogFile, gLogAppend=$gLogAppend, gLevLogFile=$(logLevelName "$gLevLogFile")"
 }
 
 logSetLevel() {
@@ -78,11 +78,16 @@ logConfigError() {
 	printf 'log4u: %s\n' "$1" >&2
 }
 
+logInitError() {
+	logConfigError "$1"
+	if [ "$gLogDebug" ]; then set +vx; fi
+	return 1
+}
+
 logInit() {
 	if [ "$gLogDebug" ]; then set -vx; fi
 	if [ ! -f "$1" ]; then
-		logConfigError "configuration file not found: $1"
-		if [ "$gLogDebug" ]; then set +vx; fi
+		logInitError "configuration file not found: $1"
 		return 1
 	fi
 
@@ -116,21 +121,21 @@ logInit() {
 		case "$lConfigKey" in
 			LOG4U.LOGCOLORS)
 				if [ -n "$lConfigValue" ]; then
-					logConfigError "line $lConfigLineNumber: LOG4U.LOGCOLORS does not accept a value"
+					logInitError "line $lConfigLineNumber: LOG4U.LOGCOLORS does not accept a value"
 					return 1
 				fi
 				lConfigColors=1
 				;;
 			LOG4U.CONSOLE)
 				if [ -n "$lConfigValue" ]; then
-					logConfigError "line $lConfigLineNumber: LOG4U.CONSOLE does not accept a value"
+					logInitError "line $lConfigLineNumber: LOG4U.CONSOLE does not accept a value"
 					return 1
 				fi
 				lConfigConsole=1
 				;;
 			LOG4U.CONSOLE.LEVEL)
 				if ! lConfigLevel=$(logLevelValue "$lConfigValue"); then
-					logConfigError "line $lConfigLineNumber: invalid console level '$lConfigValue'"
+					logInitError "line $lConfigLineNumber: invalid console level '$lConfigValue'"
 					return 1
 				fi
 				lConfigConsoleLevel=$lConfigLevel
@@ -138,7 +143,7 @@ logInit() {
 			LOG4U.LOGFILE)
 				lConfigFile=$(logTrim "${lConfigValue%%,*}")
 				if [ -z "$lConfigFile" ]; then
-					logConfigError "line $lConfigLineNumber: LOG4U.LOGFILE requires a filename"
+					logInitError "line $lConfigLineNumber: LOG4U.LOGFILE requires a filename"
 					return 1
 				fi
 				if [ "$lConfigValue" = "$lConfigFile" ]; then
@@ -148,7 +153,7 @@ logInit() {
 					case "$lConfigFileMode" in
 						a|d) ;;
 						*)
-							logConfigError "line $lConfigLineNumber: invalid logfile mode '$lConfigFileMode'"
+							logInitError "line $lConfigLineNumber: invalid logfile mode '$lConfigFileMode'"
 							return 1
 							;;
 					esac
@@ -156,17 +161,24 @@ logInit() {
 				;;
 			LOG4U.LOGFILE.LEVEL)
 				if ! lConfigLevel=$(logLevelValue "$lConfigValue"); then
-					logConfigError "line $lConfigLineNumber: invalid logfile level '$lConfigValue'"
+					logInitError "line $lConfigLineNumber: invalid logfile level '$lConfigValue'"
 					return 1
 				fi
 				lConfigFileLevel=$lConfigLevel
 				;;
 			*)
-				logConfigError "line $lConfigLineNumber: unknown property '$lConfigKey'"
+				logInitError "line $lConfigLineNumber: unknown property '$lConfigKey'"
 				return 1
 				;;
 		esac
 	done < "$1"
+
+	if [ -f "$lConfigFile" ] && [ "$lConfigFileMode" = "d" ]; then
+		if ! rm -f "$lConfigFile"; then
+			logInitError "could not remove logfile: $lConfigFile"
+			return 1
+		fi
+	fi
 
 	gLogColors=$lConfigColors
 	gLogConsole=$lConfigConsole
@@ -174,13 +186,9 @@ logInit() {
 	gLogFile=$lConfigFile
 	gLogAppend=$lConfigFileMode
 	gLevLogFile=$lConfigFileLevel
-	gLogInit=1
-
-	if [ -f "$gLogFile" ] && [ "$gLogAppend" = "d" ]; then
-		rm -f "$gLogFile"
-	fi
 
 	if [ "$gLogDebug" ]; then set +vx; fi
+	return 0
 }
 
 log() {
@@ -188,23 +196,25 @@ log() {
 	lBuf="$1"
 	lLevCurr=$2
 	lColor=$3
+	lLogStatus=0
 	lTm=$(date +"%d/%m/%Y %H:%M:%S")
 	# Formatter code here
 	lMsg="${lTm} - $(logLevelName "$lLevCurr") - $0: $lBuf"
 		
 	if [ "${gLogConsole:-1}" -eq 1 ] && [ "${gLevLogConsole:-$gLevInfo}" -ge "$lLevCurr" ]; then
 		if [ "${gLogColors:-0}" -eq 1 ]; then
-			printf '\033[%sm%s\033[0m\n' "$lColor" "$lMsg"
+			printf '\033[%sm%s\033[0m\n' "$lColor" "$lMsg" || lLogStatus=1
 		else
-			printf '%s\n' "$lMsg"
+			printf '%s\n' "$lMsg" || lLogStatus=1
 		fi
 	fi
 
 	if [ -n "$gLogFile" ] && [ "${gLevLogFile:-$gLevInfo}" -ge "$lLevCurr" ]; then
-		printf '%s\n' "$lMsg" >> "$gLogFile"
+		printf '%s\n' "$lMsg" >> "$gLogFile" || lLogStatus=1
 	fi
 
 	if [ "$gLogDebug" ]; then set +vx; fi
+	return "$lLogStatus"
 }
 
 logDebug() {

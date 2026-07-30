@@ -45,6 +45,13 @@ If a key occurs more than once, its last value is used. Unknown keys and invalid
 values cause `logInit` to return a nonzero status without changing the active
 logging configuration.
 
+Configuration is optional. Immediately after the library is sourced, console
+logging is enabled at `INFO` level, colors are disabled, and file logging is
+disabled. `logReset` restores these defaults. `logInit` may be called repeatedly;
+successful calls replace the active configuration, while failed calls preserve
+it. Logging functions return zero when all enabled outputs succeed and nonzero
+when an output cannot be written.
+
 3. In case you have a config file, initialize the logging library:
 ```
     logInit logging.conf
