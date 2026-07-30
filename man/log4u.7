@@ -1,0 +1,283 @@
+.Dd July 30, 2026
+.Dt LOG4U 7
+.Os
+.Sh NAME
+.Nm log4u
+.Nd lightweight logging library for POSIX shell scripts
+.Sh SYNOPSIS
+.Bd -literal -offset indent
+\&. ./log4u
+
+log4u_init [configuration-file]
+
+log4u_debug [message ...]
+log4u_info  [message ...]
+log4u_warn  [message ...]
+log4u_error [message ...]
+log4u_fail  [message ...]
+.Ed
+.Sh DESCRIPTION
+.Nm
+is a sourceable logging library for POSIX-compatible shell scripts.
+It provides level filtering, separate console and file outputs, optional
+console colors, and a small runtime control API.
+.Pp
+Configuration is optional.
+Immediately after the library is sourced, console logging is enabled at
+.Sy INFO
+level, colors are disabled, and file logging is disabled.
+.Pp
+The levels, from most to least verbose, are:
+.Bl -bullet -compact
+.It
+.Sy DEBUG
+.It
+.Sy INFO
+.It
+.Sy WARN
+.It
+.Sy ERROR
+.It
+.Sy FAIL
+.El
+.Pp
+A threshold includes its named level and every more severe level.
+For example,
+.Sy WARN
+allows
+.Sy WARN ,
+.Sy ERROR ,
+and
+.Sy FAIL .
+.Sh QUICK START
+.Bd -literal -offset indent
+#!/bin/sh
+
+\&. ./log4u
+
+log4u_info "service started"
+log4u_warn "retrying connection"
+
+if ! result=$(perform_request); then
+        log4u_error "request failed"
+        exit 1
+fi
+
+log4u_debug "response:" "$result"
+.Ed
+.Pp
+All message arguments are joined with a single space.
+Quote an argument when whitespace inside that argument must be preserved.
+.Sh FUNCTIONS
+.Bl -tag -width Ds
+.It Ic log4u_debug Op Ar message ...
+Writes a
+.Sy DEBUG
+message when an enabled output accepts that level.
+.It Ic log4u_info Op Ar message ...
+Writes an
+.Sy INFO
+message.
+.It Ic log4u_warn Op Ar message ...
+Writes a
+.Sy WARN
+message.
+Console output is sent to standard error.
+.It Ic log4u_error Op Ar message ...
+Writes an
+.Sy ERROR
+message.
+Console output is sent to standard error.
+.It Ic log4u_fail Op Ar message ...
+Writes a
+.Sy FAIL
+message.
+Console output is sent to standard error.
+.It Ic log4u_init Ar configuration-file
+Validates and applies a configuration file.
+The active configuration is unchanged if validation fails.
+This function may be called repeatedly.
+.It Ic log4u_reset
+Restores the default configuration.
+.It Ic log4u_status
+Prints the active color, console, file, mode, and threshold settings.
+.It Ic log4u_set_console_level Ar level
+Changes the console threshold.
+.It Ic log4u_get_console_level
+Prints the console threshold.
+.It Ic log4u_set_file_level Ar level
+Changes the file threshold.
+The setting is retained even when file output is currently disabled.
+.It Ic log4u_get_file_level
+Prints the file threshold.
+.El
+.Sh CONFIGURATION
+Configuration files contain one property per line.
+Blank lines and lines whose first non-whitespace character is
+.Ql #
+are ignored.
+Keys are case-sensitive, surrounding whitespace is allowed, and the last
+occurrence of a duplicate property wins.
+Unknown properties and invalid values cause initialization to fail.
+.Pp
+The supported properties are:
+.Bl -tag -width Ds
+.It Sy LOG4U.CONSOLE
+Enables console output.
+.It Sy LOG4U.CONSOLE.LEVEL= Ns Ar level
+Sets the console threshold.
+The default is
+.Sy INFO .
+.It Sy LOG4U.LOGCOLORS
+Enables ANSI colors for console output.
+File output never contains color escapes.
+.It Sy LOG4U.LOGFILE= Ns Ar filename Ns Op ,a|d
+Enables file output.
+Mode
+.Cm a
+appends and is the default.
+Mode
+.Cm d
+deletes an existing file during initialization; subsequent messages create
+and append to a new file.
+.It Sy LOG4U.LOGFILE.LEVEL= Ns Ar level
+Sets the file threshold.
+The default is
+.Sy INFO .
+.El
+.Ss Complete configuration example
+.Bd -literal -offset indent
+# Console: warnings and above, with colors
+LOG4U.CONSOLE
+LOG4U.CONSOLE.LEVEL=WARN
+LOG4U.LOGCOLORS
+
+# File: every message, replacing the previous run
+LOG4U.LOGFILE=application.log,d
+LOG4U.LOGFILE.LEVEL=DEBUG
+.Ed
+.Pp
+Load the configuration and handle errors explicitly:
+.Bd -literal -offset indent
+if ! log4u_init ./log4u.conf; then
+        printf '%s\en' "cannot initialize logging" >&2
+        exit 1
+fi
+.Ed
+.Sh OUTPUT FORMAT
+Each entry contains a local ISO 8601 timestamp with UTC offset, process ID,
+level, script name, and message:
+.Bd -literal -offset indent
+2026-07-30T14:30:00+0200 [12345] INFO ./worker.sh: service started
+.Ed
+.Pp
+.Sy DEBUG
+and
+.Sy INFO
+console messages use standard output.
+.Sy WARN ,
+.Sy ERROR ,
+and
+.Sy FAIL
+console messages use standard error.
+All file messages use the configured logfile.
+.Pp
+Multiline messages are preserved verbatim.
+Only the first physical line receives the metadata prefix; later physical
+lines are continuation lines.
+.Sh ENVIRONMENT
+Set
+.Va log4u_trace
+to a nonempty value to enable shell execution tracing inside the library:
+.Bd -literal -offset indent
+log4u_trace=1
+log4u_init ./log4u.conf
+log4u_trace=
+.Ed
+.Pp
+Tracing may expose message or configuration data and should only be enabled
+during development.
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ./log4u
+The sourceable library.
+.It Pa ./log4u.conf
+Example configuration.
+.It Pa ./test
+The bats-core behavioral test suite.
+.El
+.Sh EXAMPLES
+.Ss Use different thresholds
+.Bd -literal -offset indent
+log4u_set_console_level ERROR
+log4u_set_file_level DEBUG
+
+log4u_debug "written only to the logfile"
+log4u_error "written to both enabled outputs"
+.Ed
+.Ss Inspect and reset state
+.Bd -literal -offset indent
+log4u_status
+printf 'console threshold: %s\en' "$(log4u_get_console_level)"
+
+log4u_reset
+.Ed
+.Ss Log multiple values safely
+.Bd -literal -offset indent
+user="Ada Lovelace"
+attempt=3
+log4u_info "login attempt" "$attempt" "for user" "$user"
+.Ed
+.Ss Log a multiline message
+.Bd -literal -offset indent
+details='first line
+second line'
+log4u_error "$details"
+.Ed
+.Ss Check for an output failure
+.Bd -literal -offset indent
+if ! log4u_info "checkpoint reached"; then
+        printf '%s\en' "log output failed" >&2
+fi
+.Ed
+.Ss Log before initialization
+.Bd -literal -offset indent
+\&. ./log4u
+log4u_info "using default console configuration"
+.Ed
+.Sh DIAGNOSTICS
+Functions report success and failure with the following return statuses:
+.Bl -tag -width Ds
+.It 0
+The operation succeeded.
+A filtered message also returns zero.
+.It 1
+Configuration loading failed, timestamp creation failed, or an enabled output
+could not be written.
+.It 2
+An API function received an invalid number of arguments or an invalid runtime
+level.
+.El
+.Sh COMPATIBILITY
+.Nm
+targets POSIX
+.Xr sh 1 .
+It is also usable from Bash and KornShell.
+.Pp
+The original camel-case API remains available through compatibility aliases:
+.Bl -column -offset indent "Current function" "Compatibility alias"
+.It Sy Current function Ta Sy Compatibility alias
+.It log4u_reset Ta logReset
+.It log4u_status Ta logStatus
+.It log4u_set_console_level Ta logSetLevel
+.It log4u_get_console_level Ta logGetLevel
+.It log4u_init Ta logInit
+.It log4u_debug Ta logDebug
+.It log4u_info Ta logInfo
+.It log4u_warn Ta logWarn
+.It log4u_error Ta logErr
+.It log4u_fail Ta logFail
+.El
+.Sh SEE ALSO
+.Xr printf 1 ,
+.Xr sh 1

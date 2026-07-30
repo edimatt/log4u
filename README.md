@@ -1,4 +1,7 @@
 # LOG4U
+
+[![CI](https://github.com/edimatt/log4u/actions/workflows/ci.yml/badge.svg)](https://github.com/edimatt/log4u/actions/workflows/ci.yml)
+
 Logging library for POSIX-compatible shell scripts. The purpose of this library
 is to provide a simple interface for logging in Unix scripts.
 
@@ -9,6 +12,16 @@ Functionalities:
 
 ## Installation
 All you need is the log4u module. Optionally, write your own configuration file
+
+### Manual
+
+The [log4u(7) manual](man/log4u.7) is the complete quick reference, including
+the API, configuration properties, return codes, output format, and copy-ready
+examples. View it locally with:
+
+```sh
+man ./man/log4u.7
+```
 
 ### Compatibility
 
@@ -106,4 +119,18 @@ configuration file.
 ![Log for Unix](img/log4u_colors.PNG)
 
 ## Contributing
-You are welcome to extend/improve the library.
+
+The behavioral test suite uses
+[bats-core](https://github.com/bats-core/bats-core). After installing Bats, run:
+
+```sh
+bats test
+```
+
+Every push and pull request runs ShellCheck and the Bats suite in parallel.
+
+The suite covers configuration validation, level filtering, stdout/stderr
+routing, file modes, colors, formatting, output failures, compatibility aliases,
+and execution in the available POSIX-compatible shells.
+
+Contributions and improvements are welcome.
