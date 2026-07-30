@@ -1,18 +1,10 @@
-#!/usr/bin/env ksh
-
-[ ! -z $BASH_VERSION ] && gLogCommand="echo -e" || gLogCommand="print"
+#!/bin/sh
 
 gLevDebug=4
 gLevInfo=3
 gLevWarn=2
 gLevErr=1
 gLevFail=0
-
-gLevNames[$gLevDebug]=DEBUG
-gLevNames[$gLevInfo]=INFO
-gLevNames[$gLevWarn]=WARN
-gLevNames[$gLevErr]=ERROR
-gLevNames[$gLevFail]=FAIL
 
 gLogInit=0
 gLogDebug=
@@ -22,6 +14,17 @@ gLogColorGreen=32
 gLogColorYellow=33
 gLogColorPurple=35
 gLogColorWhite=37
+
+logLevelName() {
+	case $1 in
+		"$gLevDebug") printf '%s\n' DEBUG ;;
+		"$gLevInfo")  printf '%s\n' INFO ;;
+		"$gLevWarn")  printf '%s\n' WARN ;;
+		"$gLevErr")   printf '%s\n' ERROR ;;
+		"$gLevFail")  printf '%s\n' FAIL ;;
+		*)            return 1 ;;
+	esac
+}
 
 logReset() {
 	gLogInit=0
@@ -34,24 +37,23 @@ logReset() {
 }
 
 logStatus() {
-	$gLogCommand "gLogInit=$gLogInit, gLogColors=$gLogColors, gLevLogConsole=${gLevNames[$gLevLogConsole]}, gLogConsole=$gLogConsole, gLogFile=$gLogFile, gLogAppend=$gLogAppend, gLevLogFile=${gLevNames[$gLevLogFile]}" 
+	printf '%s\n' "gLogInit=$gLogInit, gLogColors=$gLogColors, gLevLogConsole=$(logLevelName "$gLevLogConsole"), gLogConsole=$gLogConsole, gLogFile=$gLogFile, gLogAppend=$gLogAppend, gLevLogFile=$(logLevelName "$gLevLogFile")"
 }
 
 logSetLevel() {
 	if [ $gLogDebug ]; then set -vx; fi
-	let lCont=0
-	for lLevName in ${gLevNames[@]}; do
-		if [ "$lLevName" == "$1" ]; then
-			gLevLogConsole=$lCont
-			break
-		fi
-		let lCont=lCont+1
-	done
+	case $1 in
+		DEBUG) gLevLogConsole=$gLevDebug ;;
+		INFO)  gLevLogConsole=$gLevInfo ;;
+		WARN)  gLevLogConsole=$gLevWarn ;;
+		ERROR) gLevLogConsole=$gLevErr ;;
+		FAIL)  gLevLogConsole=$gLevFail ;;
+	esac
 	if [ $gLogDebug ]; then set +vx; fi
 }
 
 logGetLevel() {
-	$gLogCommand ${gLevNames[$gLevLogConsole]}
+	logLevelName "$gLevLogConsole"
 }
 
 logInit() {
@@ -67,19 +69,19 @@ logInit() {
 			gLogConsole=1
 			lLevLogName=$(grep -i '^LOG4U\.CONSOLE\.LEVEL' $1 | cut -d '=' -f2)
 			case $lLevLogName in
-			"${gLevNames[$gLevDebug]}")
+			DEBUG)
 				gLevLogConsole=$gLevDebug
 				;;
-			"${gLevNames[$gLevInfo]}")
+			INFO)
 				gLevLogConsole=$gLevInfo
 				;;
-			"${gLevNames[$gLevWarn]}")
+			WARN)
 				gLevLogConsole=$gLevWarn
 				;;
-			"${gLevNames[$gLevErr]}")
+			ERROR)
 				gLevLogConsole=$gLevErr
 				;;
-			"${gLevNames[$gLevFail]}")
+			FAIL)
 				gLevLogConsole=$gLevFail
 				;;
 			*)
@@ -111,19 +113,19 @@ logInit() {
 				# If a log file is defined, load its properties
 				lLevLogName=$(grep -i '^LOG4U\.LOGFILE\.LEVEL=' $1 | cut -d '=' -f2)
 				case $lLevLogName in
-					"${gLevNames[$gLevDebug]}")
+					DEBUG)
 						gLevLogFile=$gLevDebug
 						;;
-					"${gLevNames[$gLevInfo]}")
+					INFO)
 						gLevLogFile=$gLevInfo
 						;;
-					"${gLevNames[$gLevWarn]}")
+					WARN)
 						gLevLogFile=$gLevWarn
 						;;
-					"${gLevNames[$gLevErr]}")
+					ERROR)
 						gLevLogFile=$gLevErr
 						;;
-					"${gLevNames[$gLevFail]}")
+					FAIL)
 						gLevLogFile=$gLevFail
 						;;
 					*)
@@ -142,7 +144,7 @@ logInit() {
 			gLevLogFile=""
 
 		fi
-		if [ -f "$gLogFile" -a "$gLogAppend" == "d" ]; then
+		if [ -f "$gLogFile" ] && [ "$gLogAppend" = "d" ]; then
 			rm -f "$gLogFile"
 		fi
 	
@@ -161,14 +163,18 @@ log() {
 	lColor=$3
 	lTm=$(date +"%d/%m/%Y %H:%M:%S")
 	# Formatter code here
-	lMsg="${lTm} - ${gLevNames[$lLevCurr]} - $0: $lBuf"
+	lMsg="${lTm} - $(logLevelName "$lLevCurr") - $0: $lBuf"
 		
-	if [ ${gLogConsole:-1} -eq 1 -a  ${gLevLogConsole:-$gLevInfo} -ge $lLevCurr ]; then
-		$gLogCommand $([ ${gLogColors:-0} -eq 1 ] && $gLogCommand "\033[${lColor}m${lMsg}\033[37m" || $gLogCommand "$lMsg")
+	if [ "${gLogConsole:-1}" -eq 1 ] && [ "${gLevLogConsole:-$gLevInfo}" -ge "$lLevCurr" ]; then
+		if [ "${gLogColors:-0}" -eq 1 ]; then
+			printf '\033[%sm%s\033[37m\n' "$lColor" "$lMsg"
+		else
+			printf '%s\n' "$lMsg"
+		fi
 	fi
 
-	if [ ! -z  "$gLogFile" -a ${gLevLogFile:-$gLevInfo} -ge $lLevCurr ]; then
-		 $gLogCommand "$lMsg" >> $gLogFile
+	if [ -n "$gLogFile" ] && [ "${gLevLogFile:-$gLevInfo}" -ge "$lLevCurr" ]; then
+		printf '%s\n' "$lMsg" >> "$gLogFile"
 	fi
 
 	if [ $gLogDebug ]; then set +vx; fi

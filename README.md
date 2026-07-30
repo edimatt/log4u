@@ -1,6 +1,6 @@
 # LOG4U
-Logging library for Unix. The purpose of this library is to provide a simple
-interface for logging in your unix scripts.
+Logging library for POSIX-compatible shell scripts. The purpose of this library
+is to provide a simple interface for logging in Unix scripts.
 
 Functionalities:
 1. logging levels
@@ -9,6 +9,13 @@ Functionalities:
 
 ## Installation
 All you need is the log4u module. Optionally, write your own configuration file
+
+### Compatibility
+
+Log4u targets the POSIX `sh` language and does not require Bash- or
+KornShell-specific features. It is tested with a POSIX shell; Bash and ksh can
+also source it in their POSIX-compatible modes.
+
 ## Usage
 1. Source the log4u module:
 ```
