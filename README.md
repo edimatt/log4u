@@ -171,7 +171,10 @@ The behavioral test suite uses
 bats test
 ```
 
-Every push and pull request runs ShellCheck and the Bats suite in parallel.
+Pushes to `master` and pull requests run ShellCheck and the Bats suite in
+parallel. Tags matching `v*` run the same checks and create a GitHub Release
+with generated notes after both pass. GitHub automatically provides source
+`.zip` and `.tar.gz` downloads for each release.
 
 The suite covers configuration validation, level filtering, stdout/stderr
 routing, file modes, colors, formatting, output failures, compatibility aliases,
