@@ -5,13 +5,56 @@
 Logging library for POSIX-compatible shell scripts. The purpose of this library
 is to provide a simple interface for logging in Unix scripts.
 
-Functionalities:
-1. logging levels
-2. message colors
-3. console and file writer (append and replace)
+## Why log4u?
+
+`echo` and `printf` are ideal for individual messages, but a growing script
+quickly repeats timestamp formatting, level checks, stream selection, and file
+redirection. Log4u centralizes those concerns behind a small POSIX shell API,
+with independent console and file thresholds and no application runtime.
+
+The system `logger` command is the right choice when messages belong in syslog
+or the platform journal. Log4u instead targets self-contained scripts that need
+predictable terminal output, a dedicated logfile, or both. It complements
+system logging rather than replacing it.
+
+## Architecture
+
+```text
+Application script
+        │
+        ▼
+    log4u API
+        │
+  ┌─────┴─────┐
+  ▼           ▼
+Console   File writer
+stdout/   configured
+stderr    logfile
+```
+
+Console and file outputs apply their own level threshold. ANSI colors are
+limited to the console path, while file entries remain plain text.
+
+## API quick reference
+
+| Function | Purpose |
+| --- | --- |
+| `log4u_debug [message ...]` | Write a debug message |
+| `log4u_info [message ...]` | Write an informational message |
+| `log4u_warn [message ...]` | Write a warning to stderr |
+| `log4u_error [message ...]` | Write an error to stderr |
+| `log4u_fail [message ...]` | Write a fatal-condition message to stderr |
+| `log4u_init config` | Validate and apply a configuration file |
+| `log4u_reset` | Restore the default configuration |
+| `log4u_status` | Display the active configuration |
+| `log4u_set_console_level level` | Change the console threshold |
+| `log4u_get_console_level` | Display the console threshold |
+| `log4u_set_file_level level` | Change the file threshold |
+| `log4u_get_file_level` | Display the file threshold |
 
 ## Installation
-All you need is the log4u module. Optionally, write your own configuration file
+
+All you need is the log4u module. Optionally, write your own configuration file.
 
 ### Manual
 
@@ -35,7 +78,8 @@ also source it in their POSIX-compatible modes.
     . ./log4u
 ```
 
-2. Write a configuration file (optional). Supported properties are
+2. Write a configuration file (optional). Supported properties are:
+
 - LOG4U.CONSOLE
 - LOG4U.CONSOLE.LEVEL=DEBUG|INFO|WARN|ERROR|FAIL
 - LOG4U.LOGCOLORS
@@ -55,15 +99,15 @@ The property LOG4U.LOGCOLORS enables colors.
 Configuration keys are case-sensitive. Blank lines and lines beginning with
 `#` are ignored, and surrounding whitespace around keys and values is allowed.
 If a key occurs more than once, its last value is used. Unknown keys and invalid
-values cause `logInit` to return a nonzero status without changing the active
+values cause `log4u_init` to return a nonzero status without changing the active
 logging configuration.
 
 Configuration is optional. Immediately after the library is sourced, console
 logging is enabled at `INFO` level, colors are disabled, and file logging is
-disabled. `logReset` restores these defaults. `logInit` may be called repeatedly;
-successful calls replace the active configuration, while failed calls preserve
-it. Logging functions return zero when all enabled outputs succeed and nonzero
-when an output cannot be written.
+disabled. `log4u_reset` restores these defaults. `log4u_init` may be called
+repeatedly; successful calls replace the active configuration, while failed
+calls preserve it. Logging functions return zero when all enabled outputs
+succeed and nonzero when an output cannot be written.
 
 3. If you have a configuration file, initialize the logging library:
 ```
