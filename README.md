@@ -52,11 +52,51 @@ successful calls replace the active configuration, while failed calls preserve
 it. Logging functions return zero when all enabled outputs succeed and nonzero
 when an output cannot be written.
 
-3. In case you have a config file, initialize the logging library:
+3. If you have a configuration file, initialize the logging library:
 ```
-    logInit logging.conf
+    log4u_init logging.conf
 ```
-4. Use the logging functions logDebug, logInfo, logWarn, logErr, logFail
+4. Write log messages:
+```sh
+log4u_debug "request payload:" "$payload"
+log4u_info "service started"
+log4u_warn "retrying connection"
+log4u_error "request failed"
+log4u_fail "service cannot continue"
+```
+
+All arguments passed to a logging function are joined with a single space.
+Warnings, errors, and failures are written to standard error; debug and
+informational messages are written to standard output. Enabled file output
+receives every message that passes its independent level threshold.
+
+Console and file levels can be inspected and changed at runtime:
+```sh
+log4u_set_console_level WARN
+log4u_set_file_level DEBUG
+log4u_get_console_level
+log4u_get_file_level
+```
+
+Setters accept exactly one of `DEBUG`, `INFO`, `WARN`, `ERROR`, or `FAIL`.
+Invalid input returns status `2` and leaves the current level unchanged.
+
+The remaining public functions are `log4u_reset` and `log4u_status`. All
+implementation functions and state use the `_log4u_` prefix to avoid collisions
+with the caller's shell environment. The original camel-case functions remain
+available as backward-compatible aliases.
+
+## Log format
+
+Each entry starts with a local ISO 8601 timestamp including the UTC offset,
+followed by the process ID, level, script name, and message:
+```text
+2026-07-30T14:30:00+0200 [12345] INFO ./example.sh: service started
+```
+
+Multiline messages are preserved verbatim. Only the first physical line carries
+the metadata prefix; subsequent lines are continuation lines. ANSI colors apply
+only to console output and are reset after every entry.
 
 ![Log for Unix](img/log4u.PNG)
 

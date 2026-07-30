@@ -1,238 +1,272 @@
 #!/bin/sh
 
-gLevDebug=4
-gLevInfo=3
-gLevWarn=2
-gLevErr=1
-gLevFail=0
+_log4u_level_debug=4
+_log4u_level_info=3
+_log4u_level_warn=2
+_log4u_level_error=1
+_log4u_level_fail=0
 
-gLogDebug=
+_log4u_color_red=31
+_log4u_color_yellow=33
+_log4u_color_purple=35
+_log4u_color_white=37
 
-gLogColorRed=31
-gLogColorGreen=32
-gLogColorYellow=33
-gLogColorPurple=35
-gLogColorWhite=37
+log4u_trace=
 
-logLevelName() {
+_log4u_level_name() {
 	case "$1" in
-		"$gLevDebug") printf '%s\n' DEBUG ;;
-		"$gLevInfo")  printf '%s\n' INFO ;;
-		"$gLevWarn")  printf '%s\n' WARN ;;
-		"$gLevErr")   printf '%s\n' ERROR ;;
-		"$gLevFail")  printf '%s\n' FAIL ;;
-		*)            return 1 ;;
+		"$_log4u_level_debug") printf '%s\n' DEBUG ;;
+		"$_log4u_level_info")  printf '%s\n' INFO ;;
+		"$_log4u_level_warn")  printf '%s\n' WARN ;;
+		"$_log4u_level_error") printf '%s\n' ERROR ;;
+		"$_log4u_level_fail")  printf '%s\n' FAIL ;;
+		*)                     return 1 ;;
 	esac
 }
 
-logReset() {
-	gLevLogConsole=$gLevInfo
-	gLogConsole=1
-	gLogColors=0
-	gLogFile=
-	gLogAppend=a
-	gLevLogFile=$gLevInfo
-}
-
-logReset
-
-logStatus() {
-	printf '%s\n' "gLogColors=$gLogColors, gLevLogConsole=$(logLevelName "$gLevLogConsole"), gLogConsole=$gLogConsole, gLogFile=$gLogFile, gLogAppend=$gLogAppend, gLevLogFile=$(logLevelName "$gLevLogFile")"
-}
-
-logSetLevel() {
-	if [ "$gLogDebug" ]; then set -vx; fi
+_log4u_level_value() {
 	case "$1" in
-		DEBUG) gLevLogConsole=$gLevDebug ;;
-		INFO)  gLevLogConsole=$gLevInfo ;;
-		WARN)  gLevLogConsole=$gLevWarn ;;
-		ERROR) gLevLogConsole=$gLevErr ;;
-		FAIL)  gLevLogConsole=$gLevFail ;;
-	esac
-	if [ "$gLogDebug" ]; then set +vx; fi
-}
-
-logGetLevel() {
-	logLevelName "$gLevLogConsole"
-}
-
-logTrim() {
-	lTrimValue=$1
-	lTrimValue=${lTrimValue#"${lTrimValue%%[![:space:]]*}"}
-	lTrimValue=${lTrimValue%"${lTrimValue##*[![:space:]]}"}
-	printf '%s\n' "$lTrimValue"
-}
-
-logLevelValue() {
-	case "$1" in
-		DEBUG) printf '%s\n' "$gLevDebug" ;;
-		INFO)  printf '%s\n' "$gLevInfo" ;;
-		WARN)  printf '%s\n' "$gLevWarn" ;;
-		ERROR) printf '%s\n' "$gLevErr" ;;
-		FAIL)  printf '%s\n' "$gLevFail" ;;
+		DEBUG) printf '%s\n' "$_log4u_level_debug" ;;
+		INFO)  printf '%s\n' "$_log4u_level_info" ;;
+		WARN)  printf '%s\n' "$_log4u_level_warn" ;;
+		ERROR) printf '%s\n' "$_log4u_level_error" ;;
+		FAIL)  printf '%s\n' "$_log4u_level_fail" ;;
 		*)     return 1 ;;
 	esac
 }
 
-logConfigError() {
+_log4u_error() {
 	printf 'log4u: %s\n' "$1" >&2
 }
 
-logInitError() {
-	logConfigError "$1"
-	if [ "$gLogDebug" ]; then set +vx; fi
+_log4u_trim() {
+	_log4u_trim_value=$1
+	_log4u_trim_value=${_log4u_trim_value#"${_log4u_trim_value%%[![:space:]]*}"}
+	_log4u_trim_value=${_log4u_trim_value%"${_log4u_trim_value##*[![:space:]]}"}
+	printf '%s\n' "$_log4u_trim_value"
+}
+
+_log4u_init_error() {
+	_log4u_error "$1"
+	if [ "$log4u_trace" ]; then set +vx; fi
 	return 1
 }
 
-logInit() {
-	if [ "$gLogDebug" ]; then set -vx; fi
+log4u_reset() {
+	_log4u_console_level=$_log4u_level_info
+	_log4u_console_enabled=1
+	_log4u_colors_enabled=0
+	_log4u_file=
+	_log4u_file_mode=a
+	_log4u_file_level=$_log4u_level_info
+}
+
+log4u_reset
+
+log4u_status() {
+	printf '%s\n' "colors=$_log4u_colors_enabled, console_level=$(_log4u_level_name "$_log4u_console_level"), console=$_log4u_console_enabled, file=$_log4u_file, file_mode=$_log4u_file_mode, file_level=$(_log4u_level_name "$_log4u_file_level")"
+}
+
+log4u_set_console_level() {
+	if [ "$#" -ne 1 ]; then
+		_log4u_error 'log4u_set_console_level requires exactly one level'
+		return 2
+	fi
+	if ! _log4u_new_level=$(_log4u_level_value "$1"); then
+		_log4u_error "invalid console level: $1"
+		return 2
+	fi
+	_log4u_console_level=$_log4u_new_level
+}
+
+log4u_get_console_level() {
+	_log4u_level_name "$_log4u_console_level"
+}
+
+log4u_set_file_level() {
+	if [ "$#" -ne 1 ]; then
+		_log4u_error 'log4u_set_file_level requires exactly one level'
+		return 2
+	fi
+	if ! _log4u_new_level=$(_log4u_level_value "$1"); then
+		_log4u_error "invalid file level: $1"
+		return 2
+	fi
+	_log4u_file_level=$_log4u_new_level
+}
+
+log4u_get_file_level() {
+	_log4u_level_name "$_log4u_file_level"
+}
+
+log4u_init() {
+	if [ "$#" -ne 1 ]; then
+		_log4u_error 'log4u_init requires exactly one configuration file'
+		return 2
+	fi
+	if [ "$log4u_trace" ]; then set -vx; fi
 	if [ ! -f "$1" ]; then
-		logInitError "configuration file not found: $1"
+		_log4u_init_error "configuration file not found: $1"
 		return 1
 	fi
 
-	lConfigColors=0
-	lConfigConsole=0
-	lConfigConsoleLevel=$gLevInfo
-	lConfigFile=
-	lConfigFileMode=a
-	lConfigFileLevel=$gLevInfo
-	lConfigLineNumber=0
+	_log4u_config_colors=0
+	_log4u_config_console=0
+	_log4u_config_console_level=$_log4u_level_info
+	_log4u_config_file=
+	_log4u_config_file_mode=a
+	_log4u_config_file_level=$_log4u_level_info
+	_log4u_config_line_number=0
 
-	while IFS= read -r lConfigLine || [ -n "$lConfigLine" ]; do
-		lConfigLineNumber=$((lConfigLineNumber + 1))
-		lConfigLine=$(logTrim "$lConfigLine")
+	while IFS= read -r _log4u_config_line || [ -n "$_log4u_config_line" ]; do
+		_log4u_config_line_number=$((_log4u_config_line_number + 1))
+		_log4u_config_line=$(_log4u_trim "$_log4u_config_line")
 
-		case "$lConfigLine" in
+		case "$_log4u_config_line" in
 			''|\#*) continue ;;
 		esac
 
-		case "$lConfigLine" in
+		case "$_log4u_config_line" in
 			*=*)
-				lConfigKey=$(logTrim "${lConfigLine%%=*}")
-				lConfigValue=$(logTrim "${lConfigLine#*=}")
+				_log4u_config_key=$(_log4u_trim "${_log4u_config_line%%=*}")
+				_log4u_config_value=$(_log4u_trim "${_log4u_config_line#*=}")
 				;;
 			*)
-				lConfigKey=$lConfigLine
-				lConfigValue=
+				_log4u_config_key=$_log4u_config_line
+				_log4u_config_value=
 				;;
 		esac
 
-		case "$lConfigKey" in
+		case "$_log4u_config_key" in
 			LOG4U.LOGCOLORS)
-				if [ -n "$lConfigValue" ]; then
-					logInitError "line $lConfigLineNumber: LOG4U.LOGCOLORS does not accept a value"
+				if [ -n "$_log4u_config_value" ]; then
+					_log4u_init_error "line $_log4u_config_line_number: LOG4U.LOGCOLORS does not accept a value"
 					return 1
 				fi
-				lConfigColors=1
+				_log4u_config_colors=1
 				;;
 			LOG4U.CONSOLE)
-				if [ -n "$lConfigValue" ]; then
-					logInitError "line $lConfigLineNumber: LOG4U.CONSOLE does not accept a value"
+				if [ -n "$_log4u_config_value" ]; then
+					_log4u_init_error "line $_log4u_config_line_number: LOG4U.CONSOLE does not accept a value"
 					return 1
 				fi
-				lConfigConsole=1
+				_log4u_config_console=1
 				;;
 			LOG4U.CONSOLE.LEVEL)
-				if ! lConfigLevel=$(logLevelValue "$lConfigValue"); then
-					logInitError "line $lConfigLineNumber: invalid console level '$lConfigValue'"
+				if ! _log4u_config_level=$(_log4u_level_value "$_log4u_config_value"); then
+					_log4u_init_error "line $_log4u_config_line_number: invalid console level '$_log4u_config_value'"
 					return 1
 				fi
-				lConfigConsoleLevel=$lConfigLevel
+				_log4u_config_console_level=$_log4u_config_level
 				;;
 			LOG4U.LOGFILE)
-				lConfigFile=$(logTrim "${lConfigValue%%,*}")
-				if [ -z "$lConfigFile" ]; then
-					logInitError "line $lConfigLineNumber: LOG4U.LOGFILE requires a filename"
+				_log4u_config_file=$(_log4u_trim "${_log4u_config_value%%,*}")
+				if [ -z "$_log4u_config_file" ]; then
+					_log4u_init_error "line $_log4u_config_line_number: LOG4U.LOGFILE requires a filename"
 					return 1
 				fi
-				if [ "$lConfigValue" = "$lConfigFile" ]; then
-					lConfigFileMode=a
+				if [ "$_log4u_config_value" = "$_log4u_config_file" ]; then
+					_log4u_config_file_mode=a
 				else
-					lConfigFileMode=$(logTrim "${lConfigValue#*,}")
-					case "$lConfigFileMode" in
+					_log4u_config_file_mode=$(_log4u_trim "${_log4u_config_value#*,}")
+					case "$_log4u_config_file_mode" in
 						a|d) ;;
 						*)
-							logInitError "line $lConfigLineNumber: invalid logfile mode '$lConfigFileMode'"
+							_log4u_init_error "line $_log4u_config_line_number: invalid logfile mode '$_log4u_config_file_mode'"
 							return 1
 							;;
 					esac
 				fi
 				;;
 			LOG4U.LOGFILE.LEVEL)
-				if ! lConfigLevel=$(logLevelValue "$lConfigValue"); then
-					logInitError "line $lConfigLineNumber: invalid logfile level '$lConfigValue'"
+				if ! _log4u_config_level=$(_log4u_level_value "$_log4u_config_value"); then
+					_log4u_init_error "line $_log4u_config_line_number: invalid logfile level '$_log4u_config_value'"
 					return 1
 				fi
-				lConfigFileLevel=$lConfigLevel
+				_log4u_config_file_level=$_log4u_config_level
 				;;
 			*)
-				logInitError "line $lConfigLineNumber: unknown property '$lConfigKey'"
+				_log4u_init_error "line $_log4u_config_line_number: unknown property '$_log4u_config_key'"
 				return 1
 				;;
 		esac
 	done < "$1"
 
-	if [ -f "$lConfigFile" ] && [ "$lConfigFileMode" = "d" ]; then
-		if ! rm -f "$lConfigFile"; then
-			logInitError "could not remove logfile: $lConfigFile"
+	if [ -f "$_log4u_config_file" ] && [ "$_log4u_config_file_mode" = "d" ]; then
+		if ! rm -f "$_log4u_config_file"; then
+			_log4u_init_error "could not remove logfile: $_log4u_config_file"
 			return 1
 		fi
 	fi
 
-	gLogColors=$lConfigColors
-	gLogConsole=$lConfigConsole
-	gLevLogConsole=$lConfigConsoleLevel
-	gLogFile=$lConfigFile
-	gLogAppend=$lConfigFileMode
-	gLevLogFile=$lConfigFileLevel
+	_log4u_colors_enabled=$_log4u_config_colors
+	_log4u_console_enabled=$_log4u_config_console
+	_log4u_console_level=$_log4u_config_console_level
+	_log4u_file=$_log4u_config_file
+	_log4u_file_mode=$_log4u_config_file_mode
+	_log4u_file_level=$_log4u_config_file_level
 
-	if [ "$gLogDebug" ]; then set +vx; fi
+	if [ "$log4u_trace" ]; then set +vx; fi
 	return 0
 }
 
-log() {
-	if [ "$gLogDebug" ]; then set -vx; fi
-	lBuf="$1"
-	lLevCurr=$2
-	lColor=$3
-	lLogStatus=0
-	lTm=$(date +"%d/%m/%Y %H:%M:%S")
-	# Formatter code here
-	lMsg="${lTm} - $(logLevelName "$lLevCurr") - $0: $lBuf"
-		
-	if [ "${gLogConsole:-1}" -eq 1 ] && [ "${gLevLogConsole:-$gLevInfo}" -ge "$lLevCurr" ]; then
-		if [ "${gLogColors:-0}" -eq 1 ]; then
-			printf '\033[%sm%s\033[0m\n' "$lColor" "$lMsg" || lLogStatus=1
+_log4u_write() {
+	if [ "$log4u_trace" ]; then set -vx; fi
+	_log4u_current_level=$1
+	_log4u_color=$2
+	_log4u_message=$3
+	_log4u_write_status=0
+	if ! _log4u_timestamp=$(date '+%Y-%m-%dT%H:%M:%S%z'); then
+		_log4u_error 'could not create log timestamp'
+		if [ "$log4u_trace" ]; then set +vx; fi
+		return 1
+	fi
+	_log4u_formatted_message="${_log4u_timestamp} [$$] $(_log4u_level_name "$_log4u_current_level") $0: $_log4u_message"
+
+	if [ "$_log4u_console_enabled" -eq 1 ] && [ "$_log4u_console_level" -ge "$_log4u_current_level" ]; then
+		if [ "$_log4u_colors_enabled" -eq 1 ]; then
+			printf '\033[%sm%s\033[0m\n' "$_log4u_color" "$_log4u_formatted_message" || _log4u_write_status=1
 		else
-			printf '%s\n' "$lMsg" || lLogStatus=1
+			printf '%s\n' "$_log4u_formatted_message" || _log4u_write_status=1
 		fi
 	fi
 
-	if [ -n "$gLogFile" ] && [ "${gLevLogFile:-$gLevInfo}" -ge "$lLevCurr" ]; then
-		printf '%s\n' "$lMsg" >> "$gLogFile" || lLogStatus=1
+	if [ -n "$_log4u_file" ] && [ "$_log4u_file_level" -ge "$_log4u_current_level" ]; then
+		printf '%s\n' "$_log4u_formatted_message" >> "$_log4u_file" || _log4u_write_status=1
 	fi
 
-	if [ "$gLogDebug" ]; then set +vx; fi
-	return "$lLogStatus"
+	if [ "$log4u_trace" ]; then set +vx; fi
+	return "$_log4u_write_status"
 }
 
-logDebug() {
-	log "$1" "$gLevDebug" "$gLogColorWhite"
+log4u_debug() {
+	_log4u_write "$_log4u_level_debug" "$_log4u_color_white" "$*"
 }
 
-logInfo() {
-	log "$1" "$gLevInfo" "$gLogColorWhite"
+log4u_info() {
+	_log4u_write "$_log4u_level_info" "$_log4u_color_white" "$*"
 }
 
-logWarn() {
-	log "$1" "$gLevWarn" "$gLogColorYellow" 1>&2
+log4u_warn() {
+	_log4u_write "$_log4u_level_warn" "$_log4u_color_yellow" "$*" 1>&2
 }
 
-logErr() {
-	log "$1" "$gLevErr" "$gLogColorRed" 1>&2
+log4u_error() {
+	_log4u_write "$_log4u_level_error" "$_log4u_color_red" "$*" 1>&2
 }
 
-logFail() {
-	log "$1" "$gLevFail" "$gLogColorPurple" 1>&2
+log4u_fail() {
+	_log4u_write "$_log4u_level_fail" "$_log4u_color_purple" "$*" 1>&2
 }
+
+# Backward-compatible aliases for the original public API.
+logReset() { log4u_reset "$@"; }
+logStatus() { log4u_status "$@"; }
+logSetLevel() { log4u_set_console_level "$@"; }
+logGetLevel() { log4u_get_console_level "$@"; }
+logInit() { log4u_init "$@"; }
+logDebug() { log4u_debug "$@"; }
+logInfo() { log4u_info "$@"; }
+logWarn() { log4u_warn "$@"; }
+logErr() { log4u_error "$@"; }
+logFail() { log4u_fail "$@"; }
